@@ -1,0 +1,21 @@
+# Python cache and local editor files
+__pycache__/
+*.py[cod]
+*.swp
+
+# Logs
+*.log
+
+# Large datasets / model assets
+data/*.zip
+data/*.txt
+bert-base-uncased/
+
+# Training outputs and checkpoints
+output_*/
+output/
+**/checkpoint-*/
+**/optimizer.pt
+**/pytorch_model.bin
+**/trainer_state.json
+**/training_args.bin
