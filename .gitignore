@@ -19,3 +19,23 @@ output/
 **/pytorch_model.bin
 **/trainer_state.json
 **/training_args.bin
+
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs
+*.log
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

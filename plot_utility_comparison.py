@@ -5,11 +5,12 @@
 - X 轴: epsilon
 - Y 轴: Accuracy
 - 对比线:
-  1. Baseline（基于指数机制）
+  1. SanText（基于指数机制）
   2. Mixed (ε_high=16)
   3. Mixed (ε_high=18)
   4. Mixed (ε_high=20)
   5. Mixed (ε_high=24)
+  6. No sanitized
 """
 
 import csv
@@ -48,6 +49,8 @@ def load_avg(csv_path, key_col="epsilon", val_col="accuracy"):
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 santext_csv = os.path.join(PROJECT_DIR, "utility_results_SST2_bert.csv")
+no_sanitized_mean = 0.9241
+no_sanitized_std = 0.0
 mixed_csvs = {
     "Mixed (ε_high=16)": os.path.join(PROJECT_DIR, "utility_results_SST2_bert_mixed_eps16.csv"),
     "Mixed (ε_high=18)": os.path.join(PROJECT_DIR, "utility_results_SST2_bert_mixed_eps18.csv"),
@@ -60,7 +63,7 @@ mixed_csvs = {
 # 3. 加载数据
 # ============================================================
 
-# Baseline 数据
+# SanText 数据
 santext_mean, santext_std = load_avg(santext_csv)
 
 # Mixed 数据
@@ -76,7 +79,7 @@ for label, csv_path in mixed_csvs.items():
 # SanText 的所有 epsilon（排除 0）
 santext_epsilons = sorted([e for e in santext_mean.keys() if e >= 0])
 
-print("Baseline epsilon 值:", santext_epsilons)
+print("SanText epsilon 值:", santext_epsilons)
 for label, (mean, std) in mixed_data.items():
     all_eps = sorted(mean.keys())
     print(f"{label} epsilon 值: {all_eps}")
@@ -86,6 +89,13 @@ all_epsilons = set(santext_epsilons)
 for label, (mean, std) in mixed_data.items():
     all_epsilons.update(mean.keys())
 all_epsilons = sorted(all_epsilons)
+no_sanitized_x = None
+if no_sanitized_mean is not None:
+    max_epsilon = max(all_epsilons) if all_epsilons else 0
+    epsilon_step = min(
+        np.diff(all_epsilons)
+    ) if len(all_epsilons) > 1 else max(1, max_epsilon * 0.1)
+    no_sanitized_x = max_epsilon + epsilon_step
 
 # ============================================================
 # 5. 画图
@@ -95,21 +105,22 @@ fig, ax = plt.subplots(figsize=(14, 7))
 
 # 颜色和标记设置
 styles = {
-    "Baseline":           {"color": "#1f77b4", "marker": "o",  "linestyle": "-"},
+    "SanText":           {"color": "#1f77b4", "marker": "o",  "linestyle": "-"},
     "Mixed (ε_high=16)": {"color": "#ff7f0e", "marker": "s",  "linestyle": "--"},
     "Mixed (ε_high=18)": {"color": "#2ca02c", "marker": "^",  "linestyle": "--"},
     "Mixed (ε_high=20)": {"color": "#d62728", "marker": "D",  "linestyle": "--"},
     "Mixed (ε_high=22)": {"color": "#8c564b", "marker": "p",  "linestyle": "--"},
     "Mixed (ε_high=24)": {"color": "#9467bd", "marker": "v",  "linestyle": "--"},
+    "No sanitized":      {"color": "#000000", "marker": "*",  "linestyle": "None"},
 }
 
-# 画 Baseline 线（画出所有 epsilon 数据点）
+# 画 SanText 线（画出所有 epsilon 数据点）
 eps_list = santext_epsilons
 means = [santext_mean[e] for e in eps_list]
 stds  = [santext_std[e] for e in eps_list]
-style = styles["Baseline"]
+style = styles["SanText"]
 ax.errorbar(eps_list, means, yerr=stds, 
-            label="Baseline",  
+            label="SanText",
             color=style["color"], marker=style["marker"], linestyle=style["linestyle"],
             linewidth=2, markersize=8, capsize=3, capthick=1.5)
 
@@ -129,17 +140,29 @@ for label, (mean, std) in mixed_data.items():
                 color=style["color"], marker=style["marker"], linestyle=style["linestyle"],
                 linewidth=2, markersize=8, capsize=3, capthick=1.5)
 
+if no_sanitized_x is not None:
+    style = styles["No sanitized"]
+    ax.errorbar([no_sanitized_x], [no_sanitized_mean], yerr=[no_sanitized_std],
+                label="No sanitized",
+                color=style["color"], marker=style["marker"], linestyle=style["linestyle"],
+                linewidth=2, markersize=12, capsize=3, capthick=1.5)
+
 # ============================================================
 # 6. 图表美化
 # ============================================================
 
 ax.set_xlabel(r'$\varepsilon_{\mathrm{MLDP}}$  (Privacy Budget, actual DP budget = $\varepsilon_{\mathrm{MLDP}} \times d_{\max}$,  $d_{\max}=2.89$)', fontsize=13)
 ax.set_ylabel("Accuracy", fontsize=14)
-ax.set_title("Utility Comparison: Baseline vs Sample Amplification (SST-2, BERT)", fontsize=15)
+ax.set_title("Utility Comparison: SanText vs Sample Amplification (SST-2, BERT)", fontsize=15)
 
 # X 轴刻度：显示所有出现过的 epsilon 值
-ax.set_xticks(all_epsilons)
-ax.set_xticklabels([str(int(e)) if e == int(e) else str(e) for e in all_epsilons], fontsize=9, rotation=45)
+xticks = list(all_epsilons)
+xticklabels = [str(int(e)) if e == int(e) else str(e) for e in all_epsilons]
+if no_sanitized_x is not None:
+    xticks.append(no_sanitized_x)
+    xticklabels.append(r'$\infty$')
+ax.set_xticks(xticks)
+ax.set_xticklabels(xticklabels, fontsize=9, rotation=45)
 
 
 
